@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="JLPT N4 Daily Study Timer & Progress Dashboard. Focused 5-hour daily study routine with independent progress tracking, overtime logging, and consistency analytics.">
+  <meta name="theme-color" content="#080c14">
+  <title>JLPT N4 Study Studio — Daily Timer & Progress Dashboard</title>
+
+  <!-- Clean typography with system Apple fallbacks -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <link rel="icon" type="image/x-icon" href="app-icon.ico">
+  <link rel="stylesheet" href="style.css?v=20261110f">
+</head>
+<body>
+  <!-- Accessibility Skip Link -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- Ambient Backdrop with Floating Aurora Orbs & Elemental Canvas -->
+  <div class="ambient-backdrop" aria-hidden="true">
+    <canvas id="elemental-canvas" class="elemental-canvas"></canvas>
+    <div class="ambient-aurora-orb orb-primary"></div>
+    <div class="ambient-aurora-orb orb-secondary"></div>
+    <div class="ambient-aurora-orb orb-tertiary"></div>
+    <div class="ambient-mesh-grid"></div>
+  </div>
+
+  <!-- ARIA Live Announcements for Screen Readers -->
+  <div id="aria-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Persistent Storage Failure Warning Banner -->
+  <aside id="storage-warning-banner" class="storage-warning-banner hidden" role="alert" aria-label="Storage Failure Alert">
+    <div class="storage-warning-content">
+      <span class="warning-icon" aria-hidden="true">⚠️</span>
+      <div class="warning-text">
+        <strong>Storage Warning:</strong> Local browser storage is unavailable or disabled. Your progress is held only in temporary memory and <em>will be lost if this tab is closed or refreshed</em>.
+      </div>
+      <div class="warning-actions">
+        <button id="btn-emergency-export" class="btn btn-sm btn-warning">Download Emergency Backup</button>
+        <button id="btn-retry-storage" class="btn btn-sm btn-outline">Retry Save</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Floating Top Studio Header & Minimalist Quick Settings (Note 2 & Note 5) -->
+  <header class="app-header">
+    <div class="header-container">
+      <!-- Header Floating Pills: XP & Level Badge + Daily Stats Pill -->
+      <div class="header-floating-pill-wrap">
+        <!-- XP & Level Badge button (Hidden per user preference) -->
+        <button id="header-xp-badge" class="xp-header-badge" style="display: none;" title="View Study Mastery & Rank Leaderboard" aria-haspopup="dialog">
+          <span class="xp-star-crest" aria-hidden="true">
+            <svg viewBox="0 0 20 20" width="15" height="15" fill="none">
+              <path d="M10 2L12.3 7.2L18 7.8L13.7 11.6L14.9 17.2L10 14.4L5.1 17.2L6.3 11.6L2 7.8L7.7 7.2L10 2Z" fill="url(#xpStarGrad)" stroke="#fef08a" stroke-width="1"/>
+              <circle cx="10" cy="10.2" r="1.8" fill="#fffbeb"/>
+              <defs>
+                <linearGradient id="xpStarGrad" x1="2" y1="2" x2="18" y2="18" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#fbbf24"/>
+                  <stop offset="1" stop-color="#d97706"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </span>
+          <span class="xp-level-text" id="header-xp-level">Lv. 1 Novice Koi</span>
+          <span class="xp-pts-text monospace" id="header-xp-pts">0 XP</span>
+        </button>
+
+        <button id="btn-toggle-stats" class="stats-toggle-pill" aria-expanded="false" aria-controls="quick-settings-popover" title="Daily study time & studio quick settings">
+          <span class="pill-dot" id="header-progress-dot"></span>
+          <span class="pill-title">Today:</span>
+          <span class="pill-stat monospace" id="header-progress-summary">00:00:00</span>
+          <span class="pill-badge" id="header-progress-percent">0%</span>
+          <span class="pill-arrow" id="header-stats-arrow">▾</span>
+        </button>
+
+        <!-- D: Drive Daily CSV Sync Status Indicator (Hidden per user preference) -->
+        <div id="sync-status-badge" class="sync-status-badge" style="display: none;" title="Status of D:\ drive daily study CSV sync">
+          <span class="sync-dot sync-synced" id="sync-status-dot"></span>
+          <span class="sync-text" id="sync-status-text">D:\ Synced</span>
+        </div>
+
+        <!-- Dropdown containing all other settings & exam countdown -->
+        <div id="quick-settings-popover" class="quick-settings-popover hidden" role="region" aria-label="Studio Quick Settings">
+          <div class="settings-dropdown-header">
+            <div class="header-branding">
+              <div class="logo-mark" aria-hidden="true">
+                <span class="logo-kanji">日</span>
+              </div>
+              <div>
+                <h1 class="app-title">JLPT N4 Study Studio</h1>
+                <p class="app-subtitle">Daily Routine: 5h Goal</p>
+              </div>
+            </div>
+
+            <!-- Exam Countdown Badge -->
+            <div class="countdown-badge" id="exam-countdown-badge" title="Target Exam: December 6, 2026">
+              <span class="badge-label">Exam:</span>
+              <span class="badge-digits" id="exam-countdown-text">Calculating...</span>
+            </div>
+          </div>
+
+          <!-- Header Toolbar Controls inside dropdown -->
+          <div class="header-controls">
+            <!-- YouTube Ambient Study Music Player (Note 3) -->
+            <div class="setting-item-row yt-music-card">
+              <div class="yt-music-header">
+                <div class="yt-music-title-wrap">
+                  <span class="yt-music-icon">🎵</span>
+                  <span class="control-label-xs">YouTube Study Music:</span>
+                </div>
+                <div class="yt-header-actions">
+                  <button id="btn-yt-popout" class="btn btn-xs btn-subtle yt-popout-btn" title="Open YouTube in background tab or pop-out window for 100% reliable uninterrupted audio">
+                    <span>🎧 Pop-out ↗</span>
+                  </button>
+                  <button id="btn-yt-play-toggle" class="btn btn-xs btn-primary yt-play-btn" title="Play or pause YouTube music">
+                    <span id="yt-play-icon">▶</span> <span id="yt-play-label">Play</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- file:// Protocol Advisory Banner (Shown dynamically when running on file://) -->
+              <div id="yt-file-advisory" class="yt-file-advisory hidden">
+                <span class="yt-advisory-icon">⚠️</span>
+                <div class="yt-advisory-content">
+                  <p class="yt-advisory-text">Opened via <code>file://</code>: YouTube blocks in-page embeds (Error 150).</p>
+                  <div class="yt-advisory-actions">
+                    <a href="http://localhost:3456/" id="btn-switch-to-server" class="btn btn-xs btn-primary-accent" title="Switch to local HTTP server where embeds are enabled">
+                      🚀 Open on http://localhost:3456/
+                    </a>
+                    <button id="btn-yt-popout-advisory" class="btn btn-xs btn-subtle" title="Listen directly on YouTube in background tab">
+                      🎧 Background Tab ↗
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Input for custom YouTube Video or Playlist URL -->
+              <div class="yt-input-group">
+                <input 
+                  type="text" 
+                  id="yt-music-url-input" 
+                  class="yt-url-input" 
+                  placeholder="Paste YouTube video or playlist URL..." 
+                  value="https://www.youtube.com/watch?v=dwY7w0k3j2Y" 
+                  aria-label="YouTube Music URL"
+                />
+                <button id="btn-yt-load-url" class="btn btn-xs btn-subtle" title="Load YouTube link">
+                  Load
+                </button>
+              </div>
+
+              <!-- Quick Presets -->
+              <div class="yt-presets-row">
+                <button class="btn btn-tag yt-preset-btn is-active" data-url="https://www.youtube.com/watch?v=dwY7w0k3j2Y" title="Classical Music for When You're on a Deadline (HALIDONMUSIC)">Deadline Music</button>
+                <button class="btn btn-tag yt-preset-btn" data-url="https://www.youtube.com/watch?v=jfKfPfyJRdk" title="Lofi Girl Radio 24/7">Lofi Girl</button>
+                <button class="btn btn-tag yt-preset-btn" data-url="https://www.youtube.com/watch?v=5qap5aO4i9A" title="Lofi Hip Hop Study Beats">Chilled Cow</button>
+              </div>
+
+              <!-- Compact YouTube Embed IFrame Container -->
+              <div id="yt-player-container" class="yt-player-container">
+                <iframe 
+                  id="yt-player-iframe" 
+                  class="yt-player-iframe" 
+                  src="https://www.youtube.com/embed/dwY7w0k3j2Y?enablejsapi=1&autoplay=0&loop=1&playlist=dwY7w0k3j2Y" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                  referrerpolicy="strict-origin-when-cross-origin"
+                  allowfullscreen 
+                  loading="lazy">
+                </iframe>
+              </div>
+
+              <!-- Volume Control & Auto-Play on Study Settings -->
+              <div class="yt-controls-subrow">
+                <div class="yt-volume-wrap">
+                  <label for="yt-volume-slider" class="control-label-xxs">Vol:</label>
+                  <input type="range" id="yt-volume-slider" min="0" max="100" value="50" class="range-slider-xs" aria-label="YouTube Volume">
+                  <span id="yt-volume-display" class="yt-vol-num monospace">50%</span>
+                </div>
+                <label class="yt-autoplay-toggle" title="Automatically start music when study timer starts">
+                  <input type="checkbox" id="chk-yt-autoplay-study">
+                  <span class="control-label-xxs">Auto-play on Study</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <button id="btn-toggle-sound" class="btn-icon" aria-label="Toggle Completion Chime" title="Toggle Completion Chime">
+                <span id="sound-icon" aria-hidden="true">🔔</span>
+                <span class="control-text" id="sound-status-text">Sound On</span>
+              </button>
+              <button id="btn-test-chime" class="btn btn-xs btn-subtle" title="Test audio synthesizer chime">
+                Test Chime
+              </button>
+            </div>
+
+            <button id="btn-toggle-notifications" class="btn-icon" aria-label="Toggle Desktop Notifications" title="Toggle Desktop Notifications">
+              <span id="notif-icon" aria-hidden="true">💬</span>
+              <span class="control-text" id="notif-status-text">Notifs Off</span>
+            </button>
+
+            <!-- Aquarium Effects Quality Setting (Priority 7) -->
+            <div class="setting-item-row">
+              <label for="select-aquarium-effects" class="control-label-xs">🌊 Aquarium Effects:</label>
+              <select id="select-aquarium-effects" class="select-sm" aria-label="Aquarium visual effects setting">
+                <option value="full" selected>Full (Living Pond & Ripples)</option>
+                <option value="reduced">Reduced (Gentle Motion)</option>
+                <option value="minimal">Minimal (Static Pond)</option>
+              </select>
+            </div>
+
+            <button id="btn-open-badges" class="btn btn-sm btn-outline full-width" title="View Unlocked Milestone Badges">
+              🏆 Milestone Badges
+            </button>
+
+            <button id="btn-open-history" class="btn btn-sm btn-secondary" title="View Study History and Backups">
+              📊 History &amp; Backup
+            </button>
+
+            <!-- Koi-to-Dragon Evolution Stage Selector & Preview -->
+            <div class="evolution-selector-group" role="group" aria-label="Koi to Dragon Evolution Stage">
+              <span class="control-label-xs">🐉 Dragon Form:</span>
+              <div class="btn-group-segmented" id="evolution-btn-group">
+                <button class="btn is-active" id="btn-evo-auto" data-stage="auto" title="Auto: Evolve as daily study timer progresses">Auto</button>
+                <button class="btn" id="btn-evo-1" data-stage="1" title="Stage 1: Novice Koi (0-30m)">St. 1</button>
+                <button class="btn" id="btn-evo-2" data-stage="2" title="Stage 2: River Drake (30-60m)">St. 2</button>
+                <button class="btn" id="btn-evo-3" data-stage="3" title="Stage 3: Celestial Dragon (60m+)">St. 3</button>
+              </div>
+            </div>
+
+            <button id="btn-reset-today" class="btn btn-sm btn-danger-outline" title="Reset Today's Session">
+              ↺ Reset Today
+            </button>
+
+            <button id="btn-toggle-full-breakdown" class="btn btn-xs btn-subtle full-width" title="Toggle full daily breakdown drawer">
+              📈 Full Daily Breakdown
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="main-content" class="app-main">
+    <div class="main-container">
+
+      <!-- Today Overview & Cumulative Progress Hero (Collapsible Drawer) -->
+      <section id="hero-stats-panel" class="hero-progress-section collapsible-panel is-collapsed" aria-labelledby="daily-overview-heading">
+        <div class="hero-header-row">
+          <div>
+            <span class="today-tag" id="current-day-name">TODAY'S STUDY RECORD</span>
+            <h2 id="daily-overview-heading" class="today-date-display">Loading date...</h2>
+          </div>
+          <div class="hero-quick-status">
+            <span class="status-indicator-dot" id="global-status-dot"></span>
+            <span id="global-status-text">All Timers Idle</span>
+          </div>
+        </div>
+
+        <!-- Overall Time & Target Display -->
+        <div class="hero-stats-grid">
+          <div class="hero-stat-card primary-stat">
+            <span class="stat-label">Total Studied Today</span>
+            <div class="stat-value-row">
+              <span class="stat-value monospace" id="total-studied-display">00:00:00</span>
+              <span class="stat-target-caption">/ 5h (300 min target)</span>
+            </div>
+            <!-- Large Cumulative Progress Bar -->
+            <div class="progress-bar-container large-bar" role="progressbar" id="total-progress-bar-container" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Overall daily target progress">
+              <div class="progress-bar-fill primary-gradient" id="total-progress-fill" style="width: 0%;"></div>
+              <div class="progress-overtime-fill hidden" id="total-overtime-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <div class="hero-stat-metrics">
+            <div class="metric-pill highlight-pill">
+              <span class="pill-title">All-Time Study</span>
+              <span class="pill-number monospace" id="all-time-studied-display">0h 00m</span>
+            </div>
+            <div class="metric-pill">
+              <span class="pill-title">Daily Progress</span>
+              <span class="pill-number monospace" id="total-percentage-display">0.0%</span>
+            </div>
+            <div class="metric-pill">
+              <span class="pill-title">Remaining Today</span>
+              <span class="pill-number monospace" id="total-remaining-display">5h 00m 00s</span>
+            </div>
+            <div class="metric-pill">
+              <span class="pill-title">Targets Reached</span>
+              <span class="pill-number" id="targets-reached-count">0 / 5</span>
+            </div>
+            <div class="metric-pill">
+              <span class="pill-title">Marked Done</span>
+              <span class="pill-number" id="sections-completed-count">0 / 5</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section Timers Interactive Pillars Deck (Fey-Style Expanding Pillars) -->
+      <section class="sections-section" aria-labelledby="sections-heading">
+        <!-- Note 1: Hidden Title Row -->
+        <div class="section-title-row" style="display: none;">
+          <div>
+            <h2 id="sections-heading" class="section-title">JLPT N4 Study Focus Deck</h2>
+            <p class="section-desc">Click or play any section to expand into focus mode. Inactive sections collapse into sleek elemental pillars.</p>
+          </div>
+        </div>
+
+        <div class="pillars-deck-wrapper" id="pillars-deck-wrapper">
+          <canvas id="elemental-koi-canvas" class="elemental-koi-canvas"></canvas>
+          <div class="pillars-deck" id="cards-container">
+            <!-- 5 Elemental Pillar Cards populated dynamically by app.js -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Active Floating Focus Bar (Positioned below the pond, matching active section theme) -->
+      <section id="active-focus-bar" class="active-focus-bar hidden" aria-live="polite" aria-label="Active Study Section Focus">
+        <!-- Living Theme Bubbles & Floating Motes (Note 2) -->
+        <div class="bar-ambient-bubbles" aria-hidden="true">
+          <span class="bar-bubble bubble-1"></span>
+          <span class="bar-bubble bubble-2"></span>
+          <span class="bar-bubble bubble-3"></span>
+          <span class="bar-bubble bubble-4"></span>
+          <span class="bar-bubble bubble-5"></span>
+          <span class="bar-bubble bubble-6"></span>
+          <span class="bar-bubble bubble-7"></span>
+          <span class="bar-bubble bubble-8"></span>
+        </div>
+
+        <!-- Geometric Mandala Watermark Inspiration from Pillers (Note 1 & 2) -->
+        <div class="bar-watermark-geo" aria-hidden="true">
+          <svg viewBox="0 0 100 100" class="bar-watermark-svg geo-spin-cw">
+            <circle cx="50" cy="50" r="42" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="6 4" opacity="0.18"/>
+            <polygon points="50,16 80,50 50,84 20,50" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.15"/>
+            <polygon points="26,26 74,26 74,74 26,74" fill="none" stroke="currentColor" stroke-width="1" opacity="0.12"/>
+            <circle cx="50" cy="50" r="22" fill="none" stroke="currentColor" stroke-width="0.8" stroke-dasharray="4 4" opacity="0.15"/>
+          </svg>
+        </div>
+
+        <div class="focus-bar-inner">
+          <div class="focus-pulse-beacon-wrap">
+            <div class="focus-beacon-ripple ripple-1"></div>
+            <div class="focus-beacon-ripple ripple-2"></div>
+            <div class="focus-pulse-beacon" aria-hidden="true"></div>
+          </div>
+
+          <div class="focus-info">
+            <span class="focus-label">CURRENTLY STUDYING</span>
+            <h3 class="focus-section-name" id="focus-section-name">Vocabulary</h3>
+          </div>
+
+          <!-- Rhythmic Beat Visualizer Synced with Theme Pulse -->
+          <div class="bar-rhythm-wave" aria-hidden="true">
+            <span class="wave-bar bar-1"></span>
+            <span class="wave-bar bar-2"></span>
+            <span class="wave-bar bar-3"></span>
+            <span class="wave-bar bar-4"></span>
+            <span class="wave-bar bar-5"></span>
+            <span class="wave-bar bar-6"></span>
+            <span class="wave-bar bar-7"></span>
+          </div>
+
+          <div class="focus-timer-readout monospace" id="focus-timer-readout">00:00:00</div>
+
+          <!-- Actions: ONLY Pause / Play (Removed +5m, -5m, Mark Done per user request) -->
+          <div class="focus-actions">
+            <button id="btn-focus-pause" class="btn btn-sm btn-focus-playpause" aria-label="Toggle pause or play study timer">
+              <span id="focus-playpause-icon">⏸</span>
+              <span id="focus-playpause-text">Pause</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- JLPT N4 Daily Checklist & Reflection (Hidden per user preference) -->
+      <section class="study-checklist-section" style="display: none;" aria-labelledby="checklist-heading">
+        <div class="checklist-header-toggle-row">
+          <button id="btn-toggle-checklist" class="btn btn-sm btn-subtle checklist-toggle-pill" aria-expanded="false" aria-controls="checklist-grid-container" title="Click to view or hide daily task checklist and reflection">
+            <span>📝 Task Checklist &amp; Reflection Notes</span>
+            <span class="pill-arrow" id="checklist-arrow">▾</span>
+          </button>
+        </div>
+        <div class="checklist-grid collapsible-panel is-collapsed" id="checklist-grid-container">
+          <!-- Checklist Column -->
+          <div class="checklist-card">
+            <div class="card-header">
+              <h3 id="checklist-heading" class="card-title">Daily N4 Task Checklist</h3>
+              <span class="card-hint">Check off tasks as completed</span>
+            </div>
+            <ul class="checklist-items" id="daily-checklist-items">
+              <li class="check-item">
+                <label>
+                  <input type="checkbox" id="chk-vocab" data-key="vocabWords">
+                  <span class="check-box-custom"></span>
+                  <span class="check-text">
+                    <strong>Vocabulary:</strong> Learn new words, review forgotten words, recall without hints
+                  </span>
+                </label>
+              </li>
+              <li class="check-item">
+                <label>
+                  <input type="checkbox" id="chk-kanji" data-key="kanjiReadings">
+                  <span class="check-box-custom"></span>
+                  <span class="check-text">
+                    <strong>Kanji:</strong> Practise on/kun readings and vocabulary compound meanings
+                  </span>
+                </label>
+              </li>
+              <li class="check-item">
+                <label>
+                  <input type="checkbox" id="chk-grammar" data-key="grammarPoints">
+                  <span class="check-box-custom"></span>
+                  <span class="check-text">
+                    <strong>Mock Test:</strong> Complete a timed mock test and review missed questions
+                  </span>
+                </label>
+              </li>
+              <li class="check-item">
+                <label>
+                  <input type="checkbox" id="chk-listening" data-key="listeningAudio">
+                  <span class="check-box-custom"></span>
+                  <span class="check-text">
+                    <strong>Listening:</strong> Listen to N4 dialogue questions &amp; analyze missed items
+                  </span>
+                </label>
+              </li>
+              <li class="check-item">
+                <label>
+                  <input type="checkbox" id="chk-reading" data-key="readingPassages">
+                  <span class="check-box-custom"></span>
+                  <span class="check-text">
+                    <strong>Reading:</strong> Timed short passages and exam-format question drill
+                  </span>
+                </label>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Notes & Reflection Column -->
+          <div class="reflection-card">
+            <div class="card-header">
+              <h3 class="card-title">Daily Study Notes &amp; Reflection</h3>
+              <span class="card-hint">Auto-saves to today's record</span>
+            </div>
+            <div class="input-field-group">
+              <label for="study-notes-input" class="field-label">Study Notes (Grammar rules, tricky kanji, missed questions):</label>
+              <textarea id="study-notes-input" rows="3" class="form-textarea" placeholder="e.g. Confusing particles: に vs で; review JLPT question #4..."></textarea>
+            </div>
+            <div class="input-field-group">
+              <label for="study-reflection-input" class="field-label">End-of-Day Reflection (Focus quality, retention, energy):</label>
+              <textarea id="study-reflection-input" rows="2" class="form-textarea" placeholder="e.g. Good vocabulary recall today. Need more listening practice on fast speech..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Educational Disclaimer Banner (Note 4: Hidden) -->
+        <div class="educational-disclaimer" style="display: none;">
+          <span class="disclaimer-icon" aria-hidden="true">💡</span>
+          <p>
+            <strong>Study Principle:</strong> Time logged reflects habit consistency and deliberate practice, not guaranteed retention. Real exam mastery comes from testing recall and actively analyzing why practice questions were missed.
+          </p>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ==================== MODALS & DRAWERS ==================== -->
+
+  <!-- History & Backup Drawer / Modal -->
+  <div id="modal-history" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="history-modal-title">
+    <div class="modal-card modal-large">
+      <div class="modal-header">
+        <h2 id="history-modal-title" class="modal-title">Study History &amp; Data Management</h2>
+        <button id="btn-close-history" class="btn-close" aria-label="Close History Modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- All-Time Lifetime Study Overview Banner -->
+        <section class="history-all-time-section" id="history-all-time-section">
+          <div class="all-time-banner-grid" id="history-all-time-banner">
+            <div class="lifetime-stat-card highlight-card">
+              <span class="stat-caption">All-Time Study Time</span>
+              <span class="stat-number monospace" id="stat-lifetime-study-time">0h 00m 00s</span>
+              <span class="stat-subtext">Total time studied with app</span>
+            </div>
+            <div class="lifetime-stat-card">
+              <span class="stat-caption">Days Studied</span>
+              <span class="stat-number monospace" id="stat-lifetime-days">0 Days</span>
+              <span class="stat-subtext" id="stat-lifetime-streak-sub">0-Day Streak</span>
+            </div>
+            <div class="lifetime-stat-card">
+              <span class="stat-caption">Daily Average</span>
+              <span class="stat-number monospace" id="stat-lifetime-daily-avg">0h 00m</span>
+              <span class="stat-subtext">Per active study day</span>
+            </div>
+            <div class="lifetime-stat-card">
+              <span class="stat-caption">5h Target Met</span>
+              <span class="stat-number monospace" id="stat-lifetime-goals-met">0 / 0</span>
+              <span class="stat-subtext" id="stat-lifetime-goals-pct">0% Success Rate</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Main History Overview (Chart, Records Table, Backups) -->
+        <div id="history-overview-view" class="history-overview-view">
+          <!-- 7-Day Consistency Chart -->
+          <section class="history-chart-section">
+            <div class="chart-header-row">
+              <h3>Recent Consistency (Last 7 Days)</h3>
+              <span class="chart-sub-hint">Click any day bar to view breakdown</span>
+            </div>
+            <div class="chart-container" id="history-chart-container">
+              <!-- Rendered by app.js -->
+            </div>
+          </section>
+
+          <!-- Past Sessions Table -->
+          <section class="history-table-section">
+            <div class="table-header-row">
+              <h3>Historical Study Records</h3>
+              <span class="table-sub-hint">Click any date row for day &amp; time breakdown</span>
+            </div>
+            <div class="table-scroll">
+              <table class="history-table" id="history-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Total Time</th>
+                    <th>Goal Met</th>
+                    <th>Vocab (45m)</th>
+                    <th>Kanji (45m)</th>
+                    <th>Mock Test (90m)</th>
+                    <th>Listening (60m)</th>
+                    <th>Reading (60m)</th>
+                    <th>Notes</th>
+                    <th>Breakdown</th>
+                  </tr>
+                </thead>
+                <tbody id="history-table-body">
+                  <!-- Rendered by app.js -->
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- Backup & Import Actions -->
+          <section class="history-actions-section">
+            <h3>Data Backup &amp; Portability</h3>
+            <p class="history-explain">
+              Your data is stored exclusively in this browser. To prevent loss if cache is cleared or to transfer to another device, download backups regularly.
+            </p>
+            <div class="action-buttons-row">
+              <button id="btn-export-json" class="btn btn-secondary">📥 Download JSON Backup</button>
+              <button id="btn-export-csv" class="btn btn-secondary">📊 Download CSV Report</button>
+              <label class="btn btn-outline file-input-label">
+                📤 Import JSON Backup
+                <input type="file" id="file-import-json" accept=".json" class="sr-only">
+              </label>
+            </div>
+          </section>
+        </div>
+
+        <!-- Day Detail Breakdown Inspector (Drilldown View) -->
+        <section id="history-day-detail-view" class="history-day-detail-view hidden" aria-label="Day Study Details">
+          <div class="day-detail-header-row">
+            <button id="btn-back-to-history" class="btn btn-sm btn-secondary back-btn" type="button">
+              <span class="back-arrow">&larr;</span> Back to History Records
+            </button>
+            <div class="day-detail-title-group">
+              <h3 id="day-detail-date-title" class="day-detail-date-title">Day Breakdown</h3>
+              <div id="day-detail-badge-group" class="badge-group">
+                <!-- Badges dynamically rendered: Today, Goal Met, etc. -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Day Target Progress Summary Card -->
+          <div class="day-detail-summary-card">
+            <div class="summary-stat-pair">
+              <span class="summary-label">Total Day Study Time</span>
+              <span class="summary-val monospace" id="day-detail-total-time">0h 00m 00s</span>
+            </div>
+            <div class="summary-stat-pair">
+              <span class="summary-label">Daily Goal (5 Hours)</span>
+              <span class="summary-val monospace" id="day-detail-target-pct">0%</span>
+            </div>
+            <div class="day-progress-bar-wrap">
+              <div class="day-progress-bar-fill" id="day-detail-progress-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Subject Distribution Spectrum Bar -->
+          <div class="day-distribution-section">
+            <div class="distribution-header">
+              <span class="dist-title">Study Time Distribution by Category</span>
+              <div class="dist-legend" id="day-detail-dist-legend"><!-- Dynamic legend items --></div>
+            </div>
+            <div class="distribution-stacked-bar" id="day-detail-distribution-bar" title="Category distribution">
+              <!-- Segment spans rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- 5 Category Cards Grid -->
+          <div class="day-detail-subjects-grid" id="day-detail-subjects-grid">
+            <!-- 5 Subject cards rendered dynamically -->
+          </div>
+
+          <!-- Session Intervals Timeline -->
+          <div class="day-detail-timeline-section">
+            <h4>Study Sessions &amp; Time Intervals</h4>
+            <div class="day-timeline-list" id="day-detail-timeline-list">
+              <!-- Session items or historical note rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Notes & Reflections -->
+          <div class="day-detail-notes-grid">
+            <div class="day-notes-card">
+              <h4>Study Notes</h4>
+              <p class="day-notes-content" id="day-detail-notes-text">No notes recorded for this date.</p>
+            </div>
+            <div class="day-notes-card">
+              <h4>Daily Reflection</h4>
+              <p class="day-notes-content" id="day-detail-reflection-text">No reflection recorded for this date.</p>
+            </div>
+          </div>
+
+          <!-- Checklist Tasks -->
+          <div class="day-detail-checklist-section">
+            <h4>Checklist Tasks Completed</h4>
+            <div class="day-checklist-chips" id="day-detail-checklist-chips">
+              <!-- Checklist chips dynamically rendered -->
+            </div>
+          </div>
+        </section>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-history-done" class="btn btn-primary">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interruption / Recovery Modal (Point 2 & Amendment) -->
+  <div id="modal-recovery" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="recovery-modal-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="recovery-modal-title" class="modal-title">Session Interruption Detected</h2>
+      </div>
+      <div class="modal-body">
+        <p>The application detected that the device was asleep or the browser was suspended while the <strong id="recovery-section-name">Vocabulary</strong> timer was running.</p>
+        <div class="recovery-details-box">
+          <div class="detail-row">
+            <span>Last Active Checkpoint:</span>
+            <strong id="recovery-checkpoint-time">--:--:--</strong>
+          </div>
+          <div class="detail-row">
+            <span>Current Time:</span>
+            <strong id="recovery-current-time">--:--:--</strong>
+          </div>
+          <div class="detail-row">
+            <span>Unobserved Interval:</span>
+            <strong id="recovery-gap-duration" class="text-accent">-- min</strong>
+          </div>
+        </div>
+        <p class="text-muted">How would you like to credit this unobserved duration?</p>
+        <div class="recovery-choices">
+          <label class="choice-card">
+            <input type="radio" name="recovery-action" value="checkpoint" checked>
+            <div>
+              <strong>Credit verified time only (Recommended)</strong>
+              <p>Keep only the study time observed prior to the interruption. Avoids crediting sleep/away time.</p>
+            </div>
+          </label>
+          <label class="choice-card">
+            <input type="radio" name="recovery-action" value="full">
+            <div>
+              <strong>Credit full wall-clock duration</strong>
+              <p>Count the entire interval if you were actively studying away from the screen.</p>
+            </div>
+          </label>
+          <label class="choice-card">
+            <input type="radio" name="recovery-action" value="custom">
+            <div>
+              <strong>Enter custom minutes</strong>
+              <div class="custom-min-input">
+                <input type="number" id="recovery-custom-minutes" min="0" max="600" value="15" class="form-input">
+                <span>minutes to add</span>
+              </div>
+            </div>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-confirm-recovery" class="btn btn-primary">Apply &amp; Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JSON Import Preview & Confirmation Modal (Point 5) -->
+  <div id="modal-import-preview" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="import-preview-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="import-preview-title" class="modal-title">Confirm JSON Data Import</h2>
+        <button id="btn-cancel-import-x" class="btn-close" aria-label="Cancel Import">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>A valid backup file has been read. Review the incoming dataset summary:</p>
+        <div class="recovery-details-box">
+          <div class="detail-row">
+            <span>Total Incoming Records:</span>
+            <strong id="import-preview-count">0 days</strong>
+          </div>
+          <div class="detail-row">
+            <span>Date Range:</span>
+            <strong id="import-preview-range">-- to --</strong>
+          </div>
+          <div class="detail-row">
+            <span>Total Study Hours:</span>
+            <strong id="import-preview-hours">0 hrs</strong>
+          </div>
+          <div class="detail-row">
+            <span>Conflicting Dates (Already in Local History):</span>
+            <strong id="import-preview-conflicts" class="text-warning">0 dates</strong>
+          </div>
+        </div>
+
+        <p class="text-muted">Choose how you want to apply the imported data:</p>
+        <div class="recovery-choices">
+          <label class="choice-card">
+            <input type="radio" name="import-strategy" value="merge" checked>
+            <div>
+              <strong>Merge Records (Recommended)</strong>
+              <p>Keep your existing history. Missing dates will be added, and conflicting dates will update with the higher studied time.</p>
+            </div>
+          </label>
+          <label class="choice-card">
+            <input type="radio" name="import-strategy" value="replace">
+            <div>
+              <strong>Replace Entire History</strong>
+              <p class="text-warning">Replaces all local records with the incoming file. An automatic safety snapshot will be downloaded first.</p>
+            </div>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-cancel-import" class="btn btn-outline">Cancel</button>
+        <button id="btn-confirm-import" class="btn btn-primary">Proceed with Import</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manual Custom Time Adjustment Modal -->
+  <div id="modal-adjust-time" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="adjust-modal-title">
+    <div class="modal-card modal-small">
+      <div class="modal-header">
+        <h2 id="adjust-modal-title" class="modal-title">Adjust Section Time</h2>
+        <button id="btn-close-adjust" class="btn-close" aria-label="Close Adjust Modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Enter the net time adjustment for <strong id="adjust-section-name">Section</strong>:</p>
+        <div class="input-field-group">
+          <label for="adjust-minutes-input" class="field-label">Minutes to add (+) or subtract (-):</label>
+          <div class="flex-row gap-sm">
+            <input type="number" id="adjust-minutes-input" class="form-input" value="10" step="1">
+            <span class="input-unit">minutes</span>
+          </div>
+          <small class="field-hint">Time cannot be adjusted below 00:00:00.</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-cancel-adjust" class="btn btn-outline">Cancel</button>
+        <button id="btn-apply-adjust" class="btn btn-primary">Apply Adjustment</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset Today Confirmation Modal -->
+  <div id="modal-confirm-reset" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="reset-modal-title">
+    <div class="modal-card modal-small">
+      <div class="modal-header">
+        <h2 id="reset-modal-title" class="modal-title">Reset Today's Session?</h2>
+        <button id="btn-close-reset-modal" class="btn-close" aria-label="Close Modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to reset all timer progress, checklist, and notes for <strong>today</strong>?</p>
+        <p class="text-muted"><small>✓ Your previous days' historical records will remain safe and untouched.</small></p>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-cancel-reset" class="btn btn-outline">Keep Today's Progress</button>
+        <button id="btn-confirm-reset-today" class="btn btn-danger">Yes, Reset Today</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset Single Section Confirmation Modal -->
+  <div id="modal-confirm-section-reset" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="section-reset-modal-title">
+    <div class="modal-card modal-small">
+      <div class="modal-header">
+        <h2 id="section-reset-modal-title" class="modal-title">Reset Section Timer?</h2>
+        <button id="btn-close-section-reset" class="btn-close" aria-label="Close Modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Reset accumulated time and adjustments for <strong id="section-reset-target-name">Section</strong> back to 0?</p>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-cancel-section-reset" class="btn btn-outline">Cancel</button>
+        <button id="btn-confirm-section-reset" class="btn btn-danger">Reset Section</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Creature Inspection Modal (Priority 2 & 4) -->
+  <div id="creature-inspect-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="creature-inspect-title">
+    <div class="modal-card creature-inspect-card">
+      <div class="modal-header">
+        <div class="creature-inspect-title-wrap">
+          <span class="creature-type-icon" id="creature-inspect-icon">🐟</span>
+          <div>
+            <h2 id="creature-inspect-title" class="modal-title">Creature Sanctuary</h2>
+            <span class="creature-species-subtitle" id="creature-inspect-species">Sacred Spirit Koi</span>
+          </div>
+        </div>
+        <button id="btn-close-inspect-modal" class="btn-close" aria-label="Close Creature Inspector">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Visual Creature Stage Banner -->
+        <div class="creature-stage-banner">
+          <div class="stage-avatar-display" id="creature-inspect-avatar">
+            <span class="stage-large-emoji" id="creature-inspect-emoji">🎏</span>
+          </div>
+          <div class="stage-info-column">
+            <span class="stage-tag" id="creature-inspect-stage-tag">Stage 1: Novice Koi</span>
+            <h3 class="stage-headline" id="creature-inspect-stage-headline">River Wanderer</h3>
+            <p class="stage-desc-text" id="creature-inspect-stage-desc">
+              Swimming faithfully in the spirit pond. Accumulate study focus time to awaken dragon genes.
+            </p>
+          </div>
+        </div>
+
+        <!-- Next Evolution Gauge -->
+        <div class="inspect-progress-section">
+          <div class="inspect-gauge-header">
+            <span class="control-label-xs">Evolution Progress to Next Form:</span>
+            <span class="inspect-gauge-stat monospace" id="creature-inspect-progress-text">0 / 30m</span>
+          </div>
+          <div class="progress-bar-track inspect-gauge-track">
+            <div class="progress-bar-fill inspect-gauge-fill" id="creature-inspect-progress-bar" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- Unlocked Mythological Traits List -->
+        <div class="creature-traits-section">
+          <h4 class="traits-heading">Mythological Anatomy &amp; Powers:</h4>
+          <ul class="traits-list" id="creature-inspect-traits-list">
+            <li class="trait-item active">✨ Bioluminescent Spine joints</li>
+            <li class="trait-item active">🌊 Soft Translucent Butterfly Fins</li>
+            <li class="trait-item locked" id="trait-drake-fins">🔒 Trailing Ventral Ribbons (30m)</li>
+            <li class="trait-item locked" id="trait-drake-crest">🔒 Undulating Dorsal Crest (30m)</li>
+            <li class="trait-item locked" id="trait-dragon-antlers">🔒 Golden Antler Horns (60m)</li>
+            <li class="trait-item locked" id="trait-dragon-wings">🔒 Tiered Imperial Wings &amp; Pearl (60m)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btn-inspect-feed" class="btn btn-sm btn-subtle" title="Release spirit sparkles into pond">
+          ✨ Feed Stardust
+        </button>
+        <button id="btn-close-inspect-ok" class="btn btn-sm btn-primary">
+          Return to Study
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Milestone Badges & Leaderboard Modal (Priority 6) -->
+  <div id="badges-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="badges-modal-title">
+    <div class="modal-card badges-modal-card mastery-modal-card">
+      <div class="modal-header">
+        <div class="mastery-modal-title-wrap">
+          <div class="mastery-header-crest" aria-hidden="true">
+            <svg viewBox="0 0 32 32" width="28" height="28" fill="none">
+              <circle cx="16" cy="16" r="14" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="3 2"/>
+              <path d="M16 5L19 12L26 13L21 18L22.5 25L16 21.5L9.5 25L11 18L6 13L13 12L16 5Z" fill="url(#masteryTitleGrad)" stroke="#fef08a" stroke-width="1"/>
+              <circle cx="16" cy="16" r="3" fill="#fef08a"/>
+              <defs>
+                <linearGradient id="masteryTitleGrad" x1="6" y1="5" x2="26" y2="25" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#fbbf24"/>
+                  <stop offset="1" stop-color="#d97706"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <div>
+            <h2 id="badges-modal-title" class="modal-title">Study Mastery &amp; Leaderboard</h2>
+            <p class="modal-subtitle">Tier progression, daily merits &amp; rank milestones</p>
+          </div>
+        </div>
+        <button id="btn-close-badges-modal" class="btn-close" aria-label="Close Badges Modal">&times;</button>
+      </div>
+
+      <div class="modal-body mastery-modal-body">
+        <!-- Hero Rank & XP Spotlight -->
+        <div id="mastery-hero-spotlight" class="mastery-hero-card">
+          <!-- Dynamically populated via renderBadgesModal() -->
+        </div>
+
+        <!-- Tab Controls: Rank Ladder vs Milestones -->
+        <div class="mastery-tab-bar" role="tablist">
+          <button id="tab-btn-ranks" class="mastery-tab-btn active" role="tab" aria-selected="true" aria-controls="mastery-tab-ranks">
+            <span class="tab-label">Mastery Rank Ladder</span>
+          </button>
+          <button id="tab-btn-milestones" class="mastery-tab-btn" role="tab" aria-selected="false" aria-controls="mastery-tab-milestones">
+            <span class="tab-label">Daily Milestones</span>
+          </button>
+        </div>
+
+        <!-- Tab 1: Rank Ladder (The Leaderboard) -->
+        <div id="mastery-tab-ranks" class="mastery-tab-pane" role="tabpanel">
+          <div class="mastery-ranks-grid" id="mastery-ranks-container">
+            <!-- Dynamically populated via renderBadgesModal() -->
+          </div>
+        </div>
+
+        <!-- Tab 2: Milestone Badges -->
+        <div id="mastery-tab-milestones" class="mastery-tab-pane hidden" role="tabpanel">
+          <div class="badges-grid" id="badges-grid-container">
+            <!-- Dynamically populated via renderBadgesModal() -->
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btn-close-badges-ok" class="btn btn-primary">Return to Study</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Celebratory Toast Notification (Priority 3) -->
+  <div id="celebration-toast" class="celebration-toast hidden" role="status" aria-live="polite">
+    <span class="celebration-toast-icon" id="celebration-toast-icon">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
+        <path d="M12 2L15 8.5L22 9.5L17 14.5L18.5 21.5L12 18L5.5 21.5L7 14.5L2 9.5L9 8.5L12 2Z" fill="#fbbf24" stroke="#fde047" stroke-width="1.2"/>
+        <circle cx="12" cy="12" r="2.5" fill="#fffbeb"/>
+      </svg>
+    </span>
+    <div class="celebration-toast-text">
+      <strong id="celebration-toast-title">Target Reached!</strong>
+      <span id="celebration-toast-msg">Bonus Study XP awarded!</span>
+    </div>
+  </div>
+
+  <script src="elemental-assets.js?v=20261011e"></script>
+  <script src="elemental-atmosphere.js?v=20261011e"></script>
+  <script src="zen-audio.js?v=20261012a"></script>
+  <script src="interactive-fish-engine.js?v=20261110b"></script>
+  <script src="interactive-fish-pond.js?v=20261110b"></script>
+  <script src="app.js?v=20261011e"></script>
+
+</body>
+</html>
